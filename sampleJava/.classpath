@@ -6,14 +6,14 @@
 			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/users/ugrad/roscaj/ProgProj/lib/openni_libnux_x64"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="lib/nite_windows_x64/com.primesense.nite.jar">
+	<classpathentry kind="lib" path="lib/openni_linux_x64/org.openni.jar">
 		<attributes>
-			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="user viewer sample/lib/nite_windows_x64"/>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="user viewer sample/lib/openni_linux_x64"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="lib/openni_windows_x64/org.openni.jar">
+	<classpathentry kind="lib" path="lib/nite_linux_x64/com.primesense.nite.jar">
 		<attributes>
-			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="user viewer sample/lib/openni_windows_x64"/>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="user viewer sample/lib/nite_linux_x64"/>
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="output" path="bin"/>
