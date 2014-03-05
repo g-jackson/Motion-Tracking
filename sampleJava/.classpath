@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/users/ugrad/roscaj/ProgProj/lib/openni_libnux_x64"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="/users/ugrad/roscaj/ProgProj/lib/nite_linux_x64/com.primesense.nite.jar">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/users/ugrad/roscaj/ProgProj/lib/nite_linux_x64"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="/users/ugrad/roscaj/ProgProj/lib/openni_linux_x64/org.openni.jar">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="/users/ugrad/roscaj/ProgProj/lib/openni_linux_x64"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="/users/ugrad/roscaj/ProgProj/lib/openni_linux_x64/OpenNI2"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
