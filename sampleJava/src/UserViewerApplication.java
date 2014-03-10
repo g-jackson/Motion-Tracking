@@ -67,9 +67,13 @@ public class UserViewerApplication {
 
 	public static void main(String s[]) {
 		// initialize OpenNI and NiTE
-		OpenNI.initialize();
-		NiTE.initialize();
-
+		try{
+			OpenNI.initialize();
+			NiTE.initialize();
+		} catch(java.lang.RuntimeException e){
+			System.out.println(e.toString());
+		}
+			
 		List<DeviceInfo> devicesInfo = OpenNI.enumerateDevices();
 		if (devicesInfo.size() == 0) {
 			JOptionPane.showMessageDialog(null, "No device is connected", "Error", JOptionPane.ERROR_MESSAGE);
