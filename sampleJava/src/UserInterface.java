@@ -20,6 +20,7 @@ public class UserInterface implements Runnable {
         f.pack();
         // By default, the window is not visible. Make it visible.
         f.setVisible(true);
+        //this comment is a test
     }
 
     public static void main(String[] args) {
