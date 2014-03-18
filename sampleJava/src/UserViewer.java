@@ -170,7 +170,11 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 	}
 	
 	/*String getQuaternionsToString(){
-		return getQuaternionsToString(user);
+		for(UserData user : mLastFrame.getUsers()){
+			if (user.getSkeleton().getState() == SkeletonState.TRACKED) {
+				
+			}
+		}
 	}*/
 	
 	
