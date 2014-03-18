@@ -79,9 +79,6 @@ public class UserInterface extends JPanel
         add(actionList);
         add(save);
     }
-    public UserInterface(JFrame mFrame){
-    	createAndShowGUI(mFrame);
-    }
     
     
 
@@ -107,8 +104,9 @@ public class UserInterface extends JPanel
         }
         else if("SAV".equals(event.getActionCommand())) {
         	try {
+        		int index = actionList.getSelectedIndex();
         		
-        		String content = "Sample output";
+        		String content = ""+ actionList.getItemAt(index);
                 File newTextFile = new File("src/saves/out"+saves+".txt");
                 FileWriter fileWriter = new FileWriter(newTextFile);
                 fileWriter.write(content);
@@ -132,26 +130,5 @@ public class UserInterface extends JPanel
             System.err.println("Couldn't find file: " + path);
             return null;
         }
-    }
-
-    public static void createAndShowGUI(JFrame mFrame) {
-        final JFrame f = new JFrame("User Interface");
-        //Create and set up the content pane.
-        UserInterface window = new UserInterface();
-        //content panes must be opaque
-        window.setOpaque(true);
-
-        f.add(mFrame);
-        f.add(window);
-        // Sets the behavior for when the window is closed
-        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        f.setResizable(false);
-        
-        // set size
-        f.setSize(800,620);
-        // Arrange the components inside the window
-        //f.pack();
-        // By default, the window is not visible. Make it visible.
-        f.setVisible(true);
     }
  }
