@@ -19,20 +19,38 @@ public class UserInterface extends JPanel
 	private static final long serialVersionUID = 1L;
 	protected JButton record;
     protected JButton stopRecord;
-    protected JComboBox<String> actionList;
+    protected JButton save;
+	protected JComboBox actionList;
     
     public UserInterface() {
         // initialize all buttons and menus
         ImageIcon playIcon = createImageIcon("images/play.gif");
 	    ImageIcon stopIcon = createImageIcon("images/stop.gif");
+	    ImageIcon saveIcon = createImageIcon("images/save.gif");
         // create action menu
         String[] actions= {"Jumping", "Throwing", "Kicking", "Skipping"};
-        actionList= new JComboBox<String>(actions);
+        actionList= new JComboBox(actions);
         actionList.setSelectedIndex(0);
         actionList.addActionListener(new ActionListener(){
     	    public void actionPerformed(ActionEvent event) {
     		    // handle selected action here
-    		    // switch(event.getIndex()){}
+    	    	JComboBox cb = (JComboBox) event.getSource();
+    	    	int index = (int) cb.getSelectedIndex();
+    	    	switch(index){
+    	    		case 0:
+    	    			System.out.println("Jumping selected");
+    	    			break;
+    	    		case 1:
+    	    			System.out.println("Throwing selected");
+    	    			break;
+    	    		case 2:
+    	    			System.out.println("Kicking selected");
+    	    			break;
+    	    		case 3:
+    	    			System.out.print("Skipping selected");
+    	    			break;
+    	    			
+    	    	}
     		    
     	    }
         });
@@ -43,6 +61,10 @@ public class UserInterface extends JPanel
         stopRecord = new JButton("Stop", stopIcon);
         stopRecord.setActionCommand("STOP");
         stopRecord.setEnabled(false);
+     // create save button
+        save = new JButton("", saveIcon);
+        record.setActionCommand("SAV");
+        save.setEnabled(false);
  
         record.addActionListener(this);
         stopRecord.addActionListener(this);
@@ -50,6 +72,7 @@ public class UserInterface extends JPanel
         add(record);
         add(stopRecord);
         add(actionList);
+        add(save);
     }
 
     //Listens to the record and stop
@@ -67,6 +90,7 @@ public class UserInterface extends JPanel
           record.setEnabled(true);
           stopRecord.setEnabled(false);
 	      actionList.setEnabled(true);
+	      
 	      // printing out to console when button is clicked
 	      System.out.println("recording stopped");
         }
