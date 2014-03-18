@@ -89,5 +89,7 @@ public class UserViewerApplication {
 
 		final UserViewerApplication app = new UserViewerApplication(tracker);
 		app.run();
+
+		NiTE.shutdown();
 	}
 }
