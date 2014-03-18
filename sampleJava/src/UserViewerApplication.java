@@ -38,6 +38,10 @@ public class UserViewerApplication {
 				if (arg0.getKeyCode() == KeyEvent.VK_ESCAPE) {
 					mShouldRun = false;
 				}
+				
+				/*if(arg0.getKeyCode() == KeyEvent.VK_SPACE){
+					System.out.println(mViewer.getQuaterniansToString());
+				}*/
 			}
 		});
 
@@ -48,10 +52,13 @@ public class UserViewerApplication {
 			}
 		});
 
+		UserInterface newUser = new UserInterface(mFrame);
+		/*
 		mViewer.setSize(800, 600);
 		mFrame.add("Center", mViewer);
 		mFrame.setSize(mViewer.getWidth(), mViewer.getHeight());
-		mFrame.setVisible(true);
+		mFrame.setVisible(true); 
+		*/
 	}
 
 	void run() {

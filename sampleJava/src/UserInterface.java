@@ -24,7 +24,8 @@ public class UserInterface extends JPanel
     protected JButton stopRecord;
     protected JButton save;
 	protected JComboBox actionList;
-    
+    protected int saves;
+	
     public UserInterface() {
         // initialize all buttons and menus
         ImageIcon playIcon = createImageIcon("images/play.gif");
@@ -41,16 +42,16 @@ public class UserInterface extends JPanel
     	    	int index = (int) cb.getSelectedIndex();
     	    	switch(index){
     	    		case 0:
-    	    			System.out.println("Jumping selected");
+    	    			System.out.println(cb.getItemAt(index) + " selected");
     	    			break;
     	    		case 1:
-    	    			System.out.println("Throwing selected");
+    	    			System.out.println(cb.getItemAt(index) + " selected");
     	    			break;
     	    		case 2:
-    	    			System.out.println("Kicking selected");
+    	    			System.out.println(cb.getItemAt(index) + " selected");
     	    			break;
     	    		case 3:
-    	    			System.out.print("Skipping selected");
+    	    			System.out.println(cb.getItemAt(index) + " selected");
     	    			break;
     	    			
     	    	}
@@ -78,6 +79,11 @@ public class UserInterface extends JPanel
         add(actionList);
         add(save);
     }
+    public UserInterface(JFrame mFrame){
+    	createAndShowGUI(mFrame);
+    }
+    
+    
 
     //Listens to the record and stop
     public void actionPerformed(ActionEvent event){
@@ -88,6 +94,7 @@ public class UserInterface extends JPanel
           actionList.setEnabled(false);
           // printing out to console when button is clicked
           System.out.println("recording....");
+          saves++;
         }
         else if("STOP".equals(event.getActionCommand())) {
     	  // stop recording
@@ -100,11 +107,13 @@ public class UserInterface extends JPanel
         }
         else if("SAV".equals(event.getActionCommand())) {
         	try {
+        		
         		String content = "Sample output";
-                File newTextFile = new File("src/saves/out.txt");
+                File newTextFile = new File("src/saves/out"+saves+".txt");
                 FileWriter fileWriter = new FileWriter(newTextFile);
                 fileWriter.write(content);
                 fileWriter.close();
+                
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -125,30 +134,24 @@ public class UserInterface extends JPanel
         }
     }
 
-    private static void createAndShowGUI() {
+    public static void createAndShowGUI(JFrame mFrame) {
         final JFrame f = new JFrame("User Interface");
         //Create and set up the content pane.
         UserInterface window = new UserInterface();
         //content panes must be opaque
-        //window.setOpaque(true);
-        f.setContentPane(window);
+        window.setOpaque(true);
+
+        f.add(mFrame);
+        f.add(window);
         // Sets the behavior for when the window is closed
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        f.setResizable(false);
+        
         // set size
-        f.setSize(240,120);
+        f.setSize(800,620);
         // Arrange the components inside the window
         //f.pack();
         // By default, the window is not visible. Make it visible.
         f.setVisible(true);
     }
-    
-    public static void main(String[] args) {
-	      // Schedules the application to be run at the correct time in the event queue.
-	      javax.swing.SwingUtilities.invokeLater(new Runnable(){
-	    	    @Override
-	    	    public void run() {
-	    	    	createAndShowGUI();
-	    	    }
-	      });
-	  }
-}
+ }

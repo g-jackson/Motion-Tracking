@@ -168,4 +168,10 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 			}
 		}
 	}
+	
+	/*String getQuaternionsToString(){
+		return getQuaternionsToString(user);
+	}*/
+	
+	
 }
