@@ -38,6 +38,10 @@ public class UserViewerApplication {
 				if (arg0.getKeyCode() == KeyEvent.VK_ESCAPE) {
 					mShouldRun = false;
 				}
+				
+				/*if(arg0.getKeyCode() == KeyEvent.VK_SPACE){
+					System.out.println(mViewer.getQuaterniansToString());
+				}*/
 			}
 		});
 
