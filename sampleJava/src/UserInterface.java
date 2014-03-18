@@ -1,3 +1,6 @@
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -61,13 +64,14 @@ public class UserInterface extends JPanel
         stopRecord = new JButton("Stop", stopIcon);
         stopRecord.setActionCommand("STOP");
         stopRecord.setEnabled(false);
-     // create save button
+        // create save button
         save = new JButton("", saveIcon);
-        record.setActionCommand("SAV");
+        save.setActionCommand("SAV");
         save.setEnabled(false);
  
         record.addActionListener(this);
         stopRecord.addActionListener(this);
+        save.addActionListener(this);
         
         add(record);
         add(stopRecord);
@@ -90,9 +94,21 @@ public class UserInterface extends JPanel
           record.setEnabled(true);
           stopRecord.setEnabled(false);
 	      actionList.setEnabled(true);
-	      
+	      save.setEnabled(true);
 	      // printing out to console when button is clicked
 	      System.out.println("recording stopped");
+        }
+        else if("SAV".equals(event.getActionCommand())) {
+        	try {
+        		String content = "Sample output";
+                File newTextFile = new File("src/saves/out.txt");
+                FileWriter fileWriter = new FileWriter(newTextFile);
+                fileWriter.write(content);
+                fileWriter.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
         }
     }
 
