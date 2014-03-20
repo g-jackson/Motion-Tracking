@@ -48,7 +48,7 @@ public class UserViewerApplication {
 					mShouldRun = false;
 				}
 				
-				if(arg0.getKeyCode() == KeyEvent.VK_SPACE){
+				if(arg0.getKeyCode() == KeyEvent.VK_Q){
 					System.out.println(mViewer.getQuaternionsToString());
 				}
 			}
@@ -58,9 +58,10 @@ public class UserViewerApplication {
 		
 		mFrame.add(mViewer);
 		JPanel buttons = new UserInterface();
-		mFrame.add(buttons);
+		//mFrame.add(buttons);
 		mFrame.setSize(new Dimension( (int)((buttons.getSize().getWidth()>mViewer.getSize().getHeight())? buttons.getSize().getWidth() : mViewer.getSize().getWidth()), 
 			(int)(buttons.getSize().getHeight() + mViewer.getSize().getHeight())));
+		mFrame.setResizable(false);
 		mFrame.setVisible(true); 
 		
 	}

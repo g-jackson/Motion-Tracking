@@ -135,7 +135,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 				pos++;
 			}
 		}
-
+		
 		repaint();
 	}
 
@@ -169,20 +169,23 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		}
 	}
 	
-	String getQuaternionsToString(){
-		String strQuaternion = "Skeleton";
+	synchronized String getQuaternionsToString(){
+		String strQuaternion = "";
 		
-		for(UserData user : mLastFrame.getUsers()){
-			if (user.getSkeleton().getState() == SkeletonState.TRACKED) {
-				for(SkeletonJoint joint : user.getSkeleton().getJoints()){
-					Quaternion orientation = joint.getOrientation();
-					strQuaternion += joint.getJointType() + ": " + "W - " +orientation.getW()+ "; X - " +orientation.getX()+ "; Y - " +orientation.getY()+ "; Z - " +orientation.getZ()+ ";\n";
+		if(mLastFrame!=null){
+			for(UserData user : mLastFrame.getUsers()){
+				if (user.getSkeleton().getState() == SkeletonState.TRACKED) {
+					for(SkeletonJoint joint : user.getSkeleton().getJoints()){
+						Quaternion orientation = joint.getOrientation();
+						strQuaternion += joint.getJointType() + ": " + "W - " +orientation.getW()+ "; X - " +orientation.getX()+ "; Y - " +orientation.getY()+ "; Z - " +orientation.getZ()+ ";\n";
+					}
+				}
+				else{
+					strQuaternion = "Skeleton not found!";
 				}
 			}
-			else{
-				strQuaternion = "Skeleton not found!";
-			}
-		}
+		}else
+			strQuaternion = "User not found.";
 		
 		return strQuaternion;
 	}
