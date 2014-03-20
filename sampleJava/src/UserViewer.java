@@ -181,14 +181,25 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 					}
 				}
 				else{
-					strQuaternion = "Skeleton not found!";
+					strQuaternion = "Skeleton not found.";
 				}
 			}
 		}else
-			strQuaternion = "User not found.";
+			strQuaternion = "Last frame is null.";
 		
 		return strQuaternion;
 	}
 	
-	
+	synchronized String getFloorPlaneToString(){
+		String strFloor = "";
+		
+		if(mLastFrame!=null){
+			strFloor ="Floor(normal vector): (" + mLastFrame.getPlane().getNormal().getX() + "," + mLastFrame.getPlane().getNormal().getY() + 
+				"," + mLastFrame.getPlane().getNormal().getZ()+")" + 
+				"\nFloor(point): (" + mLastFrame.getPlane().getPoint().getX() +","+ mLastFrame.getPlane().getPoint().getY() +","+ mLastFrame.getPlane().getPoint().getZ() + ")" + 
+				"\n" +"Confidence: " + mLastFrame.getFloorConfidence();
+		}
+		
+		return strFloor;
+	}
 }

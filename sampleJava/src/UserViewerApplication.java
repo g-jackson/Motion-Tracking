@@ -51,6 +51,10 @@ public class UserViewerApplication {
 				if(arg0.getKeyCode() == KeyEvent.VK_Q){
 					System.out.println(mViewer.getQuaternionsToString());
 				}
+				
+				if(arg0.getKeyCode() == KeyEvent.VK_F){
+					System.out.println(mViewer.getFloorPlaneToString());
+				}
 			}
 		});
 		
