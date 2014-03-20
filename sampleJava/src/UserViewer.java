@@ -169,13 +169,23 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		}
 	}
 	
-	/*String getQuaternionsToString(){
+	String getQuaternionsToString(){
+		String strQuaternion = "Skeleton";
+		
 		for(UserData user : mLastFrame.getUsers()){
 			if (user.getSkeleton().getState() == SkeletonState.TRACKED) {
-				
+				for(SkeletonJoint joint : user.getSkeleton().getJoints()){
+					Quaternion orientation = joint.getOrientation();
+					strQuaternion += joint.getJointType() + ": " + "W - " +orientation.getW()+ "; X - " +orientation.getX()+ "; Y - " +orientation.getY()+ "; Z - " +orientation.getZ()+ ";\n";
+				}
+			}
+			else{
+				strQuaternion = "Skeleton not found!";
 			}
 		}
-	}*/
+		
+		return strQuaternion;
+	}
 	
 	
 }

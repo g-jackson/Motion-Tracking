@@ -2,8 +2,10 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.Dimension;
 import java.util.List;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
 
 import org.openni.Device;
 import org.openni.OpenNI;
@@ -23,6 +25,13 @@ public class UserViewerApplication {
 		mFrame = new JFrame("NiTE User Tracker Viewer");
 		mViewer = new UserViewer(tracker);
 
+		// register to closing event
+		mFrame.addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent e) {
+				mShouldRun = false;
+			}
+		});
+
 		// register to key events
 		mFrame.addKeyListener(new KeyListener() {
 			@Override
@@ -39,25 +48,21 @@ public class UserViewerApplication {
 					mShouldRun = false;
 				}
 				
-				/*if(arg0.getKeyCode() == KeyEvent.VK_SPACE){
-					System.out.println(mViewer.getQuaterniansToString());
-				}*/
+				if(arg0.getKeyCode() == KeyEvent.VK_SPACE){
+					System.out.println(mViewer.getQuaternionsToString());
+				}
 			}
 		});
-
-		// register to closing event
-		mFrame.addWindowListener(new WindowAdapter() {
-			public void windowClosing(WindowEvent e) {
-				mShouldRun = false;
-			}
-		});
-
+		
 		mViewer.setSize(800, 600);
-		mFrame.add("Center", mViewer);
-		mFrame.add(new UserInterface());
-		mFrame.pack();
+		
+		mFrame.add(mViewer);
+		JPanel buttons = new UserInterface();
+		mFrame.add(buttons);
+		mFrame.setSize(new Dimension( (int)((buttons.getSize().getWidth()>mViewer.getSize().getHeight())? buttons.getSize().getWidth() : mViewer.getSize().getWidth()), 
+			(int)(buttons.getSize().getHeight() + mViewer.getSize().getHeight())));
 		mFrame.setVisible(true); 
-	
+		
 	}
 
 	void run() {
