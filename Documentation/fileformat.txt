@@ -1,0 +1,70 @@
+This Document describes the fomat of the files saved when the record button is pressed.
+
+The file begins with metadata describing what the file contains.
+
+The first entry is the number of lines of meta data. This allows for further extensions.
+
+The following fields are currently recognised:
+A - Action performed
+S - Subject Name
+
+Following the meta data there will be an empty line followed by F and then the number of frames recorded.
+
+Each entry begins with T followed by the frame number in the recording.
+
+Joints will be shown in the following order: Head, Left Elbow, Left Foot, Left Hand, Left Hip, Left Knee, 
+Left Shoulder, Neck, Right Elbow, Right Foot, Right Hand, Right Hip, Right Knee, Right Shoulder, Torso.
+They will be labeled at the start of the line. 
+
+A space delimits information on a particular joint.
+
+Upper case letters (X,Y,Z) represent positions of joints.
+Lower case letters (w,x,y,z) represent quaternions of the joint's orientation.
+
+Each frame will be split up by a line break.
+
+The file will end with a line break and then END.
+
+Below is an example of the file format:
+
+2
+A Jumping
+S John Smith
+
+F 2
+
+T 1
+HEAD X 123 Y 456 Z 789 w .123 x .345 y .456 z .567   
+LEFT_ELBOW X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_FOOT X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_HAND X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_HIP X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_KNEE X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_SHOULDER X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+NECK X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_ELBOW X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_FOOT X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_HAND X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_HIP X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_KNEE X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_SHOULDER X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+TORSO X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+
+T 2
+HEAD X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_ELBOW X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_FOOT X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_HAND X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_HIP X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_KNEE X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+LEFT_SHOULDER X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+NECK X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_ELBOW X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_FOOT X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_HAND X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_HIP X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_KNEE X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+RIGHT_SHOULDER X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+TORSO X 123 Y 456 Z 789 w .123 x .345 y .456 z .567
+
+END
