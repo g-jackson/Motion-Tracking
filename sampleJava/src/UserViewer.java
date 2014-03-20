@@ -169,6 +169,9 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		}
 	}
 	
+	/**
+	*@return: string containing quaternions of all the joints if a skeleton is detected. 
+	**/
 	synchronized String getQuaternionsToString(){
 		String strQuaternion = "";
 		
@@ -190,6 +193,9 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		return strQuaternion;
 	}
 	
+	/**
+	*@return: string containing the normal vector and point on the floor plane as well as confidence.
+	**/
 	synchronized String getFloorPlaneToString(){
 		String strFloor = "";
 		
