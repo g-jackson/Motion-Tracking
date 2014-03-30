@@ -48,11 +48,11 @@ public class UserInterface extends JPanel
     		    // handle selected action here
     	    	JComboBox cb = (JComboBox) event.getSource();
     	    	System.out.println(cb.getSelectedItem() + " selected");
-    	    	currentActionData= loadFile("src/loads/"+cb.getSelectedItem()+".txt");
+    	    	currentActionData= loadFile("bin/loads/"+cb.getSelectedItem()+".txt");
     	    }
         });
         // load default action
-        currentActionData= loadFile("src/loads/"+actionList.getSelectedItem()+".txt");
+        currentActionData= loadFile("bin/loads/"+actionList.getSelectedItem()+".txt");
         		
         // create record button
         record = new JButton("Record", playIcon);
@@ -111,7 +111,7 @@ public class UserInterface extends JPanel
         	// currently only saves the selected action
           try {
         	String content = ""+ actionList.getSelectedItem() + " data";
-            File newTextFile = new File("src/saves/out"+saves+".txt");
+            File newTextFile = new File("bin/saves/out"+saves+".txt");
             FileWriter fileWriter = new FileWriter(newTextFile);
             fileWriter.write(content);
             fileWriter.close();
@@ -123,7 +123,7 @@ public class UserInterface extends JPanel
         }
         else if("COMP".equals(actionCommand)) {
         	// compares the last saved file with the current selected action file
-        	String cmp = loadFile("src/saves/out"+saves+".txt");
+        	String cmp = loadFile("bin/saves/out"+saves+".txt");
         	System.out.println("Loaded saved file: " + cmp);
         	System.out.println("Selected action file: " + currentActionData);
         	if(cmp.equals(currentActionData)){
