@@ -21,8 +21,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
-public class UserInterface extends JPanel
-		implements ActionListener{
+public class UserInterface extends JPanel implements ActionListener{
 
 	private static final long serialVersionUID = 1L;
 	protected JButton record;

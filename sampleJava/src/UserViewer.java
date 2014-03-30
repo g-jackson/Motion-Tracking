@@ -2,6 +2,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.awt.*;
 import java.awt.image.*;
+import java.awt.geom.*;
 
 import org.openni.*;
 import com.primesense.nite.*;
@@ -13,7 +14,6 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 	UserTrackerFrameRef mLastFrame;
 	BufferedImage mBufferedImage;
 	int[] mColors;
-   
 
 	public UserViewer(UserTracker tracker) {
 		mTracker = tracker;
@@ -87,8 +87,21 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		com.primesense.nite.Point2D<Float> toPos = mTracker.convertJointCoordinatesToDepth(toJoint.getPosition());
 
 		// draw it in another color than the use color
-		g.setColor(new Color(mColors[(user.getId() + 1) % mColors.length]));
+		/*g.setColor(new Color(mColors[(user.getId() + 1) % mColors.length]));
 		g.drawLine(x + fromPos.getX().intValue(), y + fromPos.getY().intValue(), x + toPos.getX().intValue(), y + toPos.getY().intValue());
+		*/
+
+		float minConfFrom = Math.min(fromJoint.getPositionConfidence(), fromJoint.getOrientationConfidence());
+		float minConfTo = Math.min(toJoint.getPositionConfidence(), toJoint.getOrientationConfidence());
+
+		float x1 = x + fromPos.getX().intValue();
+		float y1 = y + fromPos.getY().intValue();
+		float x2 = x + toPos.getX().intValue();
+		float y2 = y + toPos.getY().intValue();
+
+		Graphics2D g2 = (Graphics2D) g;
+		g2.setStroke(new BasicStroke(Math.min(minConfFrom, minConfTo) * 5));
+		g2.draw(new Line2D.Float(x1, y1, x2, y2));
 	}
 	
 	public synchronized void onNewFrame(UserTracker tracker) {
@@ -142,7 +155,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 	private void calcHist(ByteBuffer depthBuffer) {
 		// make sure we have enough room
 		if (mHistogram == null) {
-			mHistogram = new float[10000];
+			mHistogram = new float[0xFFFF];
 		}
 		
 		// reset

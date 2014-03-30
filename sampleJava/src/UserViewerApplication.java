@@ -62,9 +62,8 @@ public class UserViewerApplication {
 		
 		mFrame.add(mViewer);
 		JPanel buttons = new UserInterface();
-		//mFrame.add(buttons);
-		mFrame.setSize(new Dimension( (int)((buttons.getSize().getWidth()>mViewer.getSize().getHeight())? buttons.getSize().getWidth() : mViewer.getSize().getWidth()), 
-			(int)(buttons.getSize().getHeight() + mViewer.getSize().getHeight())));
+		mFrame.add(buttons);
+		mFrame.setSize(new Dimension( (int)((buttons.getSize().getWidth()>mViewer.getSize().getHeight())? buttons.getSize().getWidth() : mViewer.getSize().getWidth()), (int)(buttons.getSize().getHeight() + mViewer.getSize().getHeight())));
 		mFrame.setResizable(false);
 		mFrame.setVisible(true); 
 		
