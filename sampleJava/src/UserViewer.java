@@ -107,16 +107,16 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 
 				//draw each orthonormal basis
 				for (SkeletonJoint joint : user.getSkeleton().getJoints()){
-					if (joint.getOrientationConfidence() > 0.5 && joint.getPositionConfidence() > 0.5){
+					if (joint.getJointType() != JointType.LEFT_HAND && joint.getJointType() != JointType.RIGHT_HAND &&
+						joint.getJointType() != JointType.LEFT_FOOT && joint.getJointType() != JointType.RIGHT_FOOT &&
+						joint.getOrientationConfidence() > 0.5 && joint.getPositionConfidence() > 0.5){
+
 						float[] matrix = quatToMatrix(joint.getOrientation());
 						Point3D<Float> center = joint.getPosition();
-						final float len = 10;
+						final float len = 70;
 						Point3D<Float> dirA = new PublicPoint3D<Float>(center.getX() + matrix[0] * len, center.getY() + matrix[1] * len, center.getZ() + matrix[2] * len);
 						Point3D<Float> dirB = new PublicPoint3D<Float>(center.getX() + matrix[3] * len, center.getY() + matrix[4] * len, center.getZ() + matrix[5] * len);
 						Point3D<Float> dirC = new PublicPoint3D<Float>(center.getX() + matrix[6] * len, center.getY() + matrix[7] * len, center.getZ() + matrix[8] * len);
-
-						//System.out.println(dirA.getX() + ", " + dirA.getY() + ", " + dirA.getZ());
-						System.out.println(matrix[0] + ", " + matrix[1] + ", " + matrix[2]);
 
 						Point2D<Float> orig = mTracker.convertJointCoordinatesToDepth(center);
 						Point2D<Float> a = mTracker.convertJointCoordinatesToDepth(dirA);
@@ -126,13 +126,13 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 						g2.setStroke(new BasicStroke(3));
 
 						g2.setColor(new Color(0xFF0000));
-						g2.draw(new Line2D.Float(orig.getX().intValue(), a.getX().intValue(), orig.getY().intValue(), a.getY().intValue()));
+						g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + a.getX().intValue(), framePosY + a.getY().intValue()));
 
 						g2.setColor(new Color(0x00FF00));
-						g2.draw(new Line2D.Float(orig.getX().intValue(), b.getX().intValue(), orig.getY().intValue(), b.getY().intValue()));
+						g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + b.getX().intValue(), framePosY + b.getY().intValue()));
 
 						g2.setColor(new Color(0x0000FF));
-						g2.draw(new Line2D.Float(orig.getX().intValue(), c.getX().intValue(), orig.getY().intValue(), c.getY().intValue()));
+						g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + c.getX().intValue(), framePosY + c.getY().intValue()));
 					}
 				}
 			}
@@ -398,7 +398,6 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		float bz = 2.0f * (tmp1 + tmp2);
 		float cy = 2.0f * (tmp1 - tmp2);
 
-
 		/*float bx = 2.0f * (tmp1 + tmp2);
 		float ay = 2.0f * (tmp1 - tmp2);
 
@@ -421,8 +420,6 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		return new float[]{ ax/la, ay/la, az/la, 
 		                    bx/lb, by/lb, bz/lb, 
 		                    cx/lc, cy/lc, cz/lc };
-		//return new float[]{ ax/la, bx/lb, cx/lc, ay/la, by/lb, cy/lc, az/la, bz/lb, cz/lc };
-		//return new Point3D<Float>[]{ new Point3D<Float>(ax, ay, az), new Point3D<Float>(bx, by, bz), new Point3D<Float>(cx, cy, cz) };
 	}
 }
 
