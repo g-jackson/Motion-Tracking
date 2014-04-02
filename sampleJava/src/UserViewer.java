@@ -1,127 +1,162 @@
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.awt.*;
+
+import java.awt.Component;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Color;
+import java.awt.BasicStroke;
 import java.awt.geom.Line2D;
 import java.awt.image.*;
 
-/*import com.primesense.nite.UserData;
+import com.primesense.nite.UserData;
 import com.primesense.nite.UserTracker;
 import com.primesense.nite.UserTrackerFrameRef;
 import com.primesense.nite.Skeleton;
 import com.primesense.nite.SkeletonState;
 import com.primesense.nite.SkeletonJoint;
 import com.primesense.nite.JointType;
-import com.primesense.nite.Quaternion;
-import com.primesense.nite.PublicPoint3D; //extra class to add a public contructor to Point3D
-import com.primesense.nite.Point3D;
-import com.primesense.nite.Point2D;*/
-import com.primesense.nite.*;
+
+//call the ones below by full name
+//import com.primesense.nite.Quaternion;
+//import com.primesense.nite.PublicPoint3D; //extra class to add a public contructor to Point3D
+//import com.primesense.nite.Point3D;
+//import com.primesense.nite.Point2D;
+//import com.primesense.nite.*;
 
 import org.openni.VideoFrameRef;
 
-public class UserViewer extends Component implements UserTracker.NewFrameListener {
-	float mHistogram[];
-	int[] mDepthPixels;
-	UserTracker mTracker;
-	UserTrackerFrameRef mLastFrame;
-	BufferedImage mBufferedImage;
-	int[] mColors;
+import de.yvert.geometry.*;
 
+public class UserViewer extends Component implements UserTracker.NewFrameListener {
 	//error states
 	final static int STATE_ERROR_NO_USER = 0; //there must be one user only
 	final static int STATE_ERROR_TOO_MANY_USERS = 1; //there must be one user only
 	final static int STATE_ERROR_USER_NOT_IN_FRAME = 2; //both head and feet must both be in frame
 
+	//testing states
 	final static int STATE_CALIBRATE = 3; //wait for a few seconds to calibrate
 	final static int STATE_BEGIN = 4; //first pose
 	final static int STATE_BEND = 5; //bending down in preparation to jump
 	final static int STATE_JUMP = 6; //mid air
 	final static int STATE_FINISHED = 7; //successful test
 
-	final static String[] stateNames = new String[]{"no user", "more than one user", "user not in frame", "calibrating", "begin", "bend", "jump", "finish"};
+	private final static Vector3 upVector = new Vector3(0.0, 1.0, 0.0);
+
+	private final static int[] mColors = new int[] { 0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFF00, 0xFFFF00FF, 0xFF00FFFF };
+
+	private final static String[] stateNames = new String[]{"no user", "more than one user", "user not in frame", "calibrating", "begin", "bend", "jump", "finish"};
+
+	private final static List<JointType> limbEndTypes = Arrays.asList(new JointType[]{ JointType.LEFT_HAND, JointType.RIGHT_HAND, JointType.LEFT_FOOT, JointType.RIGHT_FOOT });
+
+	//displayed bitmap
+	private float mHistogram[];
+	private int[] mDepthPixels;
+	private BufferedImage mBufferedImage;
+
+	//framework
+	private UserTracker mTracker;
+	private UserTrackerFrameRef mLastFrame;
+
+	//tracking
+	private int state = STATE_CALIBRATE; //initial state
+	private int lastState = state;
+
+	private UserData targetUser = null;
+	private Skeleton skeleton = null;
 	private String statusString = null;
 
-	int state = STATE_CALIBRATE; //initial state
-	int lastState = state;
+	//joint values: some are needed for pose matching, but all are needed for drawing
+	//kinect space values
+	private Vector3[] jointPositions = new Vector3[JointType.values().length];
+	private Vector3[][] jointONB = new Vector3[JointType.values().length][];
+
+	//head-on-facing space values
+	private Quaternion[] rotatedQuaternions = new Quaternion[JointType.values().length];
+	private Vector3[][] rotatedONB = new Vector3[JointType.values().length][];
+	private Vector3[] rotatedPositions = new Vector3[JointType.values().length];
+	private Lock jointValuesLock = new ReentrantLock(); //used to prevent the paint thread from accessing the above values while they're being changed by the main thread
 
 	public UserViewer(UserTracker tracker) {
 		mTracker = tracker;
 		mTracker.addNewFrameListener(this);
-		mColors = new int[] { 0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFF00, 0xFFFF00FF, 0xFF00FFFF };
+		for (int i = 0; i < JointType.values().length; i++){
+			jointONB[i] = new Vector3[3];
+			rotatedONB[i] = new Vector3[3];	
+		} 
+	}
+
+	public String getStatus(){
+		return statusString;
 	}
 	
 	public synchronized void paint(Graphics g) {
 		Graphics2D g2 = (Graphics2D) g;
 
-		if (mLastFrame == null) {
-			return;
-		}
-		
-		int framePosX = 0;
-		int framePosY = 0;
-		
-		VideoFrameRef depthFrame = mLastFrame.getDepthFrame();
-		if (depthFrame != null) {
-			int width = depthFrame.getWidth();
-			int height = depthFrame.getHeight();
+		if (mLastFrame != null) {
+			int framePosX = 0;
+			int framePosY = 0;
 			
-			// make sure we have enough room
-			if (mBufferedImage == null || mBufferedImage.getWidth() != width || mBufferedImage.getHeight() != height) {
-				mBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+			VideoFrameRef depthFrame = mLastFrame.getDepthFrame();
+			if (depthFrame != null) {
+				int width = depthFrame.getWidth();
+				int height = depthFrame.getHeight();
+				
+				//dimension changed
+				if (mBufferedImage == null || mBufferedImage.getWidth() != width || mBufferedImage.getHeight() != height) 
+					mBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+				
+				mBufferedImage.setRGB(0, 0, width, height, mDepthPixels, 0, width);
+				
+				framePosX = (getWidth() - width) / 2;
+				framePosY = (getHeight() - height) / 2;
+
+				g.drawImage(mBufferedImage, framePosX, framePosY, null);
 			}
 			
-			mBufferedImage.setRGB(0, 0, width, height, mDepthPixels, 0, width);
-			
-			framePosX = (getWidth() - width) / 2;
-			framePosY = (getHeight() - height) / 2;
-
-			g.drawImage(mBufferedImage, framePosX, framePosY, null);
-		}
-		
-		for (UserData user : mLastFrame.getUsers()) {
-			if (user.getSkeleton().getState() == SkeletonState.TRACKED) {
-				drawLimb(g2, framePosX, framePosY, user, JointType.HEAD, JointType.NECK);
+			if (skeleton != null && skeleton.getState() == SkeletonState.TRACKED){
+				drawLimb(g2, framePosX, framePosY, JointType.HEAD, JointType.NECK);
 				
-				drawLimb(g2, framePosX, framePosY, user, JointType.LEFT_SHOULDER, JointType.LEFT_ELBOW);
-				drawLimb(g2, framePosX, framePosY, user, JointType.LEFT_ELBOW, JointType.LEFT_HAND);
+				drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.LEFT_ELBOW);
+				drawLimb(g2, framePosX, framePosY, JointType.LEFT_ELBOW, JointType.LEFT_HAND);
 
-				drawLimb(g2, framePosX, framePosY, user, JointType.RIGHT_SHOULDER, JointType.RIGHT_ELBOW);
-				drawLimb(g2, framePosX, framePosY, user, JointType.RIGHT_ELBOW, JointType.RIGHT_HAND);
+				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_SHOULDER, JointType.RIGHT_ELBOW);
+				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_ELBOW, JointType.RIGHT_HAND);
 
-				drawLimb(g2, framePosX, framePosY, user, JointType.LEFT_SHOULDER, JointType.RIGHT_SHOULDER);
+				drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.RIGHT_SHOULDER);
 
-				drawLimb(g2, framePosX, framePosY, user, JointType.LEFT_SHOULDER, JointType.TORSO);
-				drawLimb(g2, framePosX, framePosY, user, JointType.RIGHT_SHOULDER, JointType.TORSO);
+				drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.TORSO);
+				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_SHOULDER, JointType.TORSO);
 
-				drawLimb(g2, framePosX, framePosY, user, JointType.LEFT_HIP, JointType.TORSO);
-				drawLimb(g2, framePosX, framePosY, user, JointType.RIGHT_HIP, JointType.TORSO);
-				drawLimb(g2, framePosX, framePosY, user, JointType.LEFT_HIP, JointType.RIGHT_HIP);
+				drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.TORSO);
+				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_HIP, JointType.TORSO);
+				drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.RIGHT_HIP);
 
-				drawLimb(g2, framePosX, framePosY, user, JointType.LEFT_HIP, JointType.LEFT_KNEE);
-				drawLimb(g2, framePosX, framePosY, user, JointType.LEFT_KNEE, JointType.LEFT_FOOT);
+				drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.LEFT_KNEE);
+				drawLimb(g2, framePosX, framePosY, JointType.LEFT_KNEE, JointType.LEFT_FOOT);
 
-				drawLimb(g2, framePosX, framePosY, user, JointType.RIGHT_HIP, JointType.RIGHT_KNEE);
-				drawLimb(g2, framePosX, framePosY, user, JointType.RIGHT_KNEE, JointType.RIGHT_FOOT);
+				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_HIP, JointType.RIGHT_KNEE);
+				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_KNEE, JointType.RIGHT_FOOT);	
 
-				//draw each orthonormal basis
-				for (SkeletonJoint joint : user.getSkeleton().getJoints()){
-					if (joint.getJointType() != JointType.LEFT_HAND && joint.getJointType() != JointType.RIGHT_HAND &&
-						joint.getJointType() != JointType.LEFT_FOOT && joint.getJointType() != JointType.RIGHT_FOOT &&
-						joint.getOrientationConfidence() > 0.5 && joint.getPositionConfidence() > 0.5){
+				jointValuesLock.lock();
+				for (SkeletonJoint joint : skeleton.getJoints()){
+					JointType jointType = joint.getJointType();
+					int jointTypeId = jointType.toNative();
 
-						float[] matrix = quatToMatrix(joint.getOrientation());
-						Point3D<Float> center = joint.getPosition();
-						final float len = 70;
-						Point3D<Float> dirA = new PublicPoint3D<Float>(center.getX() + matrix[0] * len, center.getY() + matrix[1] * len, center.getZ() + matrix[2] * len);
-						Point3D<Float> dirB = new PublicPoint3D<Float>(center.getX() + matrix[3] * len, center.getY() + matrix[4] * len, center.getZ() + matrix[5] * len);
-						Point3D<Float> dirC = new PublicPoint3D<Float>(center.getX() + matrix[6] * len, center.getY() + matrix[7] * len, center.getZ() + matrix[8] * len);
+					if (!limbEndTypes.contains(jointType)){
+						//draw the onb
+						Vector3 pos = MathConversion.vector3(joint.getPosition());
 
-						Point2D<Float> orig = mTracker.convertJointCoordinatesToDepth(center);
-						Point2D<Float> a = mTracker.convertJointCoordinatesToDepth(dirA);
-						Point2D<Float> b = mTracker.convertJointCoordinatesToDepth(dirB);
-						Point2D<Float> c = mTracker.convertJointCoordinatesToDepth(dirC);
+						final float len = 70; //drawing length
+						assert joint.getPosition() != null;
+						com.primesense.nite.Point2D<Float> orig = mTracker.convertJointCoordinatesToDepth(joint.getPosition());
+						com.primesense.nite.Point2D<Float> a = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][0].scale(len))));
+						com.primesense.nite.Point2D<Float> b = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][1].scale(len))));
+						com.primesense.nite.Point2D<Float> c = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][2].scale(len))));
 
 						g2.setStroke(new BasicStroke(3));
 
@@ -135,38 +170,33 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 						g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + c.getX().intValue(), framePosY + c.getY().intValue()));
 					}
 				}
+
+				try{jointValuesLock.unlock();}
+				catch(IllegalMonitorStateException e){e.printStackTrace();}
 			}
 		}
 	}
 
-	private void drawLimb(Graphics2D g2, int x, int y, UserData user, JointType from, JointType to) {
-		SkeletonJoint fromJoint = user.getSkeleton().getJoint(from);
-		SkeletonJoint toJoint = user.getSkeleton().getJoint(to);
+	private void drawLimb(Graphics2D g2, int x, int y, JointType from, JointType to) {
+		SkeletonJoint fromJoint = skeleton.getJoint(from);
+		SkeletonJoint toJoint = skeleton.getJoint(to);
 		
-		if (fromJoint.getPositionConfidence() == 0.0 || toJoint.getPositionConfidence() == 0.0) {
-			return;
+		if (fromJoint.getPositionConfidence() >= 0.1 && toJoint.getPositionConfidence() >= 0.1){
+			com.primesense.nite.Point2D<Float> fromPos = mTracker.convertJointCoordinatesToDepth(fromJoint.getPosition());
+			com.primesense.nite.Point2D<Float> toPos = mTracker.convertJointCoordinatesToDepth(toJoint.getPosition());
+		
+			float minConfFrom = Math.min(fromJoint.getPositionConfidence(), fromJoint.getOrientationConfidence());
+			float minConfTo = Math.min(toJoint.getPositionConfidence(), toJoint.getOrientationConfidence());
+
+			float x1 = x + fromPos.getX().intValue();
+			float y1 = y + fromPos.getY().intValue();
+			float x2 = x + toPos.getX().intValue();
+			float y2 = y + toPos.getY().intValue();
+
+			g2.setColor(new Color(mColors[(targetUser.getId() + 1) % mColors.length]));
+			g2.setStroke(new BasicStroke(Math.min(minConfFrom, minConfTo) * 5));
+			g2.draw(new Line2D.Float(x1, y1, x2, y2));
 		}
-		
-		Point2D<Float> fromPos = mTracker.convertJointCoordinatesToDepth(fromJoint.getPosition());
-		Point2D<Float> toPos = mTracker.convertJointCoordinatesToDepth(toJoint.getPosition());
-
-		/*// draw it in another color than the use color
-		g.setColor(new Color(mColors[(user.getId() + 1) % mColors.length]));
-		g.drawLine(x + fromPos.getX().intValue(), y + fromPos.getY().intValue(), x + toPos.getX().intValue(), y + toPos.getY().intValue());*/
-	
-		float minConfFrom = Math.min(fromJoint.getPositionConfidence(), fromJoint.getOrientationConfidence());
-		float minConfTo = Math.min(toJoint.getPositionConfidence(), toJoint.getOrientationConfidence());
-
-		float x1 = x + fromPos.getX().intValue();
-		float y1 = y + fromPos.getY().intValue();
-		float x2 = x + toPos.getX().intValue();
-		float y2 = y + toPos.getY().intValue();
-
-		g2.setStroke(new BasicStroke(Math.min(minConfFrom, minConfTo) * 5));
-		g2.draw(new Line2D.Float(x1, y1, x2, y2));
-
-		//also draw ONBs
-
 	}
 	
 	public synchronized void onNewFrame(UserTracker tracker) {
@@ -202,37 +232,112 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 				}
 				
 				mDepthPixels[pos] = color & (0xFF000000 | (pixel << 16) | (pixel << 8) | pixel);
+				//messing with the range finding, awesome hardware
+				//int d = depth;
+				//mDepthPixels[pos] = 0xFF000000 | ((d >> 7) << 16) | ((d >> 7) << 8) | (d >> 7);
 				pos++;
 			}
 		}
 
+		//detect any new users in case they are the target user
 		java.util.List<UserData> users = mLastFrame.getUsers();
-
-		// check if any new user detected
 		for (UserData user : users) {
-			if (user.isNew()) {
-				// start skeleton tracking
-				mTracker.startSkeletonTracking(user.getId());
-			}
+			if (user.isNew()) mTracker.startSkeletonTracking(user.getId());
 		}
 
-		UserData targetUser = null;
-		Skeleton skeleton = null;
-		statusString = null; //reset
+		//reset on each frame
+		targetUser = null;
+		skeleton = null;
+		statusString = null;
 
 		if (users.size() == 1){
 			targetUser = users.get(0);
 			skeleton = targetUser.getSkeleton();
-		} 
+		}
+
+		//only do this is we really have a skeleton that's being tracked
+		if (state >= STATE_BEGIN){
+			jointValuesLock.lock();
+
+			//this joint holds the orientation of the body as a whole
+			SkeletonJoint torso = skeleton.getJoint(JointType.TORSO);
+
+			//get the position and orientation in geomlib types
+			Quaternion torsoQuaternion = MathConversion.quaternion(torso.getOrientation());
+			Vector3 torsoPosition = MathConversion.vector3(torso.getPosition());
+
+			//get the vertical axis rotation and cancel it for every joint
+			Matrix3 torsoRotationMatrix = new Matrix3(torsoQuaternion);
+			//MathConversion.onbFromQuaternion(torso.getOrientation(), ta, tb, tc);
+
+			//get a "right" vector from the cross product of the up vector and the forward vector
+			Vector3 forwardDirection = torsoRotationMatrix.getColumn(0); //TODO: find the right row that points forward when stading upright
+			Vector3 rightDirection = forwardDirection.cross(upVector);
+			rightDirection.normalize();
+
+			//get the rotation about the up vector 
+			double verticalRotation = Math.atan2(rightDirection.getZ(), rightDirection.getX());
+
+			//create a reverse vertical rotation quaternion and rotation matrix
+			Quaternion reverseVerticalRotation = new Quaternion(upVector, -verticalRotation);
+			Matrix3 reverseVerticalRotationMatrix = new Matrix3(reverseVerticalRotation);
+
+			//multiply each joint quaternion by $reverseVerticalRotation,
+			//which will make it seem as if the subject is always facing the camera directly.
+			//this simplifies the pose matching process greatly
+
+			//NOTE: a way to baypass some of the rigmarole below: get the joint vector by subtracting the position of the joint connected to the joint
+			//doesn't work on the head, though, so might as well
+			for (SkeletonJoint joint : skeleton.getJoints()) {
+				int jointTypeId = joint.getJointType().toNative();
+				
+				//take the joint position and rotate it about the up vector
+				Vector3 jointPosition = MathConversion.vector3(joint.getPosition());
+
+				//translate it to the origin
+				Vector3 diff = jointPosition.sub(torsoPosition);
+
+				//rotate it
+				Vector3 rotated = diff.multiply(reverseVerticalRotationMatrix);
+
+				//translate it back, and it's in body space
+				rotatedPositions[jointTypeId] = rotated.add(torsoPosition);
+
+				//hand and foot bones don't have orientation (but the head does)
+				if (!limbEndTypes.contains(joint.getJointType())){
+					Quaternion jointOrientation = MathConversion.quaternion(joint.getOrientation());
+					Matrix3 originalMatrix = new Matrix3(jointOrientation);
+					jointONB[jointTypeId][0] = originalMatrix.getColumn(0);
+					jointONB[jointTypeId][1] = originalMatrix.getColumn(1);
+					jointONB[jointTypeId][2] = originalMatrix.getColumn(2);
+
+					rotatedQuaternions[jointTypeId] = reverseVerticalRotation.multiply(jointOrientation);
+					Matrix3 rotatedMatrix = new Matrix3(rotatedQuaternions[jointTypeId]);
+
+					rotatedONB[jointTypeId][0] = rotatedMatrix.getColumn(0);
+					rotatedONB[jointTypeId][1] = rotatedMatrix.getColumn(1);
+					rotatedONB[jointTypeId][2] = rotatedMatrix.getColumn(2);
+				}
+			}
+
+			try{jointValuesLock.unlock();}
+			catch(IllegalMonitorStateException e){e.printStackTrace();}
+		}
 
 		//conditions for validity throughout; can go into an error state at any point
 		if (state >= STATE_CALIBRATE){ //non-error state;
 			if (users.size() == 0) state = STATE_ERROR_NO_USER;
 			else if (users.size() > 1) state = STATE_ERROR_TOO_MANY_USERS;
 			else { //one user
-				if (skeleton.getJoint(JointType.HEAD).getPositionConfidence() < 0.1 && 
-				    skeleton.getJoint(JointType.LEFT_FOOT).getPositionConfidence() < 0.1 &&
-				    skeleton.getJoint(JointType.RIGHT_FOOT).getPositionConfidence() < 0.1) state = STATE_ERROR_USER_NOT_IN_FRAME;
+				if (skeleton != null){
+					for (JointType limbEndType : limbEndTypes){
+						if (skeleton.getJoint(limbEndType).getPositionConfidence() < 0.1){
+							//one of the limb ends is out of frame
+							state = STATE_ERROR_USER_NOT_IN_FRAME;
+							break;
+						}
+					}
+				}
 			}
 		}
 
@@ -248,39 +353,45 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 
 			case STATE_ERROR_USER_NOT_IN_FRAME:
 				if (skeleton != null){
-					if (skeleton.getJoint(JointType.HEAD).getPositionConfidence() > 0.1 && 
-						skeleton.getJoint(JointType.LEFT_FOOT).getPositionConfidence() > 0.1 &&
-						skeleton.getJoint(JointType.RIGHT_FOOT).getPositionConfidence() > 0.1){
-							state = STATE_CALIBRATE;
+					boolean solved = true;
+					for (JointType limbEndType : limbEndTypes){
+						if (skeleton.getJoint(limbEndType).getPositionConfidence() < 0.1){
+							//one of the limbs is still out of frame
+							solved = false;
+							break;
+						}
 					}
-				}	
+					if (solved) state = STATE_CALIBRATE;
+				}
 				break;
 
 			//progress states
 			case STATE_CALIBRATE: 
 				assert targetUser != null;
-				SkeletonState skelState = skeleton.getState();
+				if (skeleton != null){
+					SkeletonState skelState = skeleton.getState();
 
-				if (skelState == SkeletonState.TRACKED) state = STATE_BEGIN;
-				else if (skelState == SkeletonState.NONE){
-					//not sure what this means
-					System.out.println("skelState is NONE");
-				}
-				else if (skelState == SkeletonState.CALIBRATION_ERROR_NOT_IN_POSE){
-					//not sure about this one either
-					System.out.println("skelState is CALIBRATION_ERROR_NOT_IN_POSE");
-				}
-				else{
-					//some kind of error, with a hint for the user as to how to fix
-					if (skelState == SkeletonState.CALIBRATION_ERROR_HANDS) statusString = "error calibrating hands";
-					else if (skelState == SkeletonState.CALIBRATION_ERROR_HEAD) statusString = "error calibrating head";
-					else if (skelState == SkeletonState.CALIBRATION_ERROR_LEGS) statusString = "error calibrating legs";
-					else if (skelState == SkeletonState.CALIBRATION_ERROR_TORSO) statusString = "error calibrating torso";
+					if (skelState == SkeletonState.TRACKED) state = STATE_BEGIN;
+					else if (skelState == SkeletonState.NONE){
+						//not sure what this means
+						System.out.println("skelState is NONE");
+					}
+					else if (skelState == SkeletonState.CALIBRATION_ERROR_NOT_IN_POSE){
+						//not sure about this one either
+						System.out.println("skelState is CALIBRATION_ERROR_NOT_IN_POSE");
+					}
+					else{
+						//some kind of error, with a hint for the user as to how to fix
+						if (skelState == SkeletonState.CALIBRATION_ERROR_HANDS) statusString = "error calibrating hands";
+						else if (skelState == SkeletonState.CALIBRATION_ERROR_HEAD) statusString = "error calibrating head";
+						else if (skelState == SkeletonState.CALIBRATION_ERROR_LEGS) statusString = "error calibrating legs";
+						else if (skelState == SkeletonState.CALIBRATION_ERROR_TORSO) statusString = "error calibrating torso";
+					}
 				}
 
 				break;
 
-			//TODO: stuff here
+			//TODO: pose stuff here
 			case STATE_BEGIN: break;
 			case STATE_BEND: break;
 			case STATE_JUMP: break;
@@ -288,16 +399,18 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		}
 
 		if (statusString == null) statusString = stateNames[state];
-
 		if (state != lastState){
 			System.out.println("entered state: " + statusString);
 		}
 
 		lastState = state;
-		
 		repaint();
 	}
 
+	/**
+	 * Maps the 0 .. 65535 possible depth values to 0 .. 255 grayscale values, expanding the most common range of depths
+	 * Similar to high dynamic range
+	*/
 	private void calcHist(ByteBuffer depthBuffer) {
 		// make sure we have enough room
 		if (mHistogram == null) {
@@ -310,7 +423,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 
 		int points = 0;
 		while (depthBuffer.remaining() > 0) {
-			int depth = depthBuffer.getShort() & 0xFFFF;
+			int depth = (int)depthBuffer.getShort() & 0xFFFF;
 			if (depth != 0) {
 				mHistogram[depth]++;
 				points++;
@@ -331,7 +444,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 	/**
 	*@return: string containing quaternions of all the joints if a skeleton is detected. 
 	**/
-	synchronized String getQuaternionsToString(){
+	/*synchronized String getQuaternionsToString(){
 		String strQuaternion = "";
 		
 		if(mLastFrame!=null){
@@ -346,16 +459,17 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 					strQuaternion = "Skeleton not found.";
 				}
 			}
-		}else
+		}
+		else
 			strQuaternion = "Last frame is null.";
 		
 		return strQuaternion;
-	}
+	}*/
 	
 	/**
 	*@return: string containing the normal vector and point on the floor plane as well as confidence.
 	**/
-	synchronized String getFloorPlaneToString(){
+	/*synchronized String getFloorPlaneToString(){
 		String strFloor = "";
 		
 		if(mLastFrame!=null){
@@ -366,61 +480,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		}
 		
 		return strFloor;
-	}
-
-	//http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/index.htm
-	static float[] quatToMatrix(Quaternion quat){
-		float sqw = quat.getW() * quat.getW();
-		float sqx = quat.getX() * quat.getX();
-		float sqy = quat.getY() * quat.getY();
-		float sqz = quat.getZ() * quat.getZ();
-
-		float ax = ( sqx - sqy - sqz + sqw); // since sqw + sqx + sqy + sqz =1/invs
-		float by = (-sqx + sqy - sqz + sqw);
-		float cz = (-sqx - sqy + sqz + sqw);
-
-		float tmp1 = quat.getX() * quat.getY();
-		float tmp2 = quat.getZ() * quat.getW();
-
-
-		float ay = 2.0f * (tmp1 + tmp2);
-		float bx = 2.0f * (tmp1 - tmp2);
-
-		tmp1 = quat.getX() * quat.getZ();
-		tmp2 = quat.getY() * quat.getW();
-
-		float az = 2.0f * (tmp1 - tmp2);
-		float cx = 2.0f * (tmp1 + tmp2);
-
-		tmp1 = quat.getY() * quat.getZ();
-		tmp2 = quat.getX() * quat.getW();
-
-		float bz = 2.0f * (tmp1 + tmp2);
-		float cy = 2.0f * (tmp1 - tmp2);
-
-		/*float bx = 2.0f * (tmp1 + tmp2);
-		float ay = 2.0f * (tmp1 - tmp2);
-
-		tmp1 = quat.getX() * quat.getZ();
-		tmp2 = quat.getY() * quat.getW();
-
-		float cx = 2.0f * (tmp1 - tmp2);
-		float az = 2.0f * (tmp1 + tmp2);
-
-		tmp1 = quat.getY() * quat.getZ();
-		tmp2 = quat.getX() * quat.getW();
-
-		float cy = 2.0f * (tmp1 + tmp2);
-		float bz = 2.0f * (tmp1 - tmp2);*/
-
-		float la = (float)Math.sqrt(ax * ax + ay * ay + az * az);
-		float lb = (float)Math.sqrt(bx * bx + by * by + bz * bz);
-		float lc = (float)Math.sqrt(cx * cx + cy * cy + cz * cz);
-
-		return new float[]{ ax/la, ay/la, az/la, 
-		                    bx/lb, by/lb, bz/lb, 
-		                    cx/lc, cy/lc, cz/lc };
-	}
+	}*/
 }
 
 
