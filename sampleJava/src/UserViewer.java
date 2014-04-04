@@ -21,13 +21,6 @@ import com.primesense.nite.SkeletonState;
 import com.primesense.nite.SkeletonJoint;
 import com.primesense.nite.JointType;
 
-//call the ones below by full name
-//import com.primesense.nite.Quaternion;
-//import com.primesense.nite.PublicPoint3D; //extra class to add a public contructor to Point3D
-//import com.primesense.nite.Point3D;
-//import com.primesense.nite.Point2D;
-//import com.primesense.nite.*;
-
 import org.openni.VideoFrameRef;
 
 import de.yvert.geometry.*;
@@ -79,14 +72,19 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 	private Quaternion[] rotatedQuaternions = new Quaternion[JointType.values().length];
 	private Vector3[][] rotatedONB = new Vector3[JointType.values().length][];
 	private Vector3[] rotatedPositions = new Vector3[JointType.values().length];
-	private Lock jointValuesLock = new ReentrantLock(); //used to prevent the paint thread from accessing the above values while they're being changed by the main thread
+
+	//used to prevent the paint thread from accessing the above values while they're being changed by the main thread
+	private Lock jointValuesLock = new ReentrantLock(); 
 
 	public UserViewer(UserTracker tracker) {
 		mTracker = tracker;
 		mTracker.addNewFrameListener(this);
 		for (int i = 0; i < JointType.values().length; i++){
-			jointONB[i] = new Vector3[3];
-			rotatedONB[i] = new Vector3[3];	
+			jointPositions[i] = new Vector3();
+			jointONB[i] = new Vector3[]{ new Vector3(), new Vector3(), new Vector3() };
+			rotatedQuaternions[i] = new Quaternion();
+			rotatedONB[i] = new Vector3[]{ new Vector3(), new Vector3(), new Vector3() };
+			rotatedPositions[i] = new Vector3();
 		} 
 	}
 
@@ -112,62 +110,85 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 				
 				mBufferedImage.setRGB(0, 0, width, height, mDepthPixels, 0, width);
 				
-				framePosX = (getWidth() - width) / 2;
+				framePosX = 0;//(getWidth() - width) / 2;
 				framePosY = (getHeight() - height) / 2;
 
 				g.drawImage(mBufferedImage, framePosX, framePosY, null);
 			}
 			
 			if (skeleton != null && skeleton.getState() == SkeletonState.TRACKED){
-				drawLimb(g2, framePosX, framePosY, JointType.HEAD, JointType.NECK);
-				
-				drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.LEFT_ELBOW);
-				drawLimb(g2, framePosX, framePosY, JointType.LEFT_ELBOW, JointType.LEFT_HAND);
-
-				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_SHOULDER, JointType.RIGHT_ELBOW);
-				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_ELBOW, JointType.RIGHT_HAND);
-
-				drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.RIGHT_SHOULDER);
-
-				drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.TORSO);
-				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_SHOULDER, JointType.TORSO);
-
-				drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.TORSO);
-				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_HIP, JointType.TORSO);
-				drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.RIGHT_HIP);
-
-				drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.LEFT_KNEE);
-				drawLimb(g2, framePosX, framePosY, JointType.LEFT_KNEE, JointType.LEFT_FOOT);
-
-				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_HIP, JointType.RIGHT_KNEE);
-				drawLimb(g2, framePosX, framePosY, JointType.RIGHT_KNEE, JointType.RIGHT_FOOT);	
-
 				jointValuesLock.lock();
-				for (SkeletonJoint joint : skeleton.getJoints()){
-					JointType jointType = joint.getJointType();
-					int jointTypeId = jointType.toNative();
 
-					if (!limbEndTypes.contains(jointType)){
-						//draw the onb
-						Vector3 pos = MathConversion.vector3(joint.getPosition());
+				//draw the skeleton both on screen, and to the right of the screen, with vertical rotation cancelled
+				for (int i = 0; i < 2; i++){
+					Vector3[] positions;
+					Vector3[][] onbs;
+					Vector3 torsoPosition;
 
-						final float len = 70; //drawing length
-						assert joint.getPosition() != null;
-						com.primesense.nite.Point2D<Float> orig = mTracker.convertJointCoordinatesToDepth(joint.getPosition());
-						com.primesense.nite.Point2D<Float> a = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][0].scale(len))));
-						com.primesense.nite.Point2D<Float> b = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][1].scale(len))));
-						com.primesense.nite.Point2D<Float> c = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][2].scale(len))));
+					if (i == 0){
+						positions = jointPositions;
+						onbs = jointONB;
+						torsoPosition = jointPositions[JointType.TORSO.toNative()];
+					}
 
-						g2.setStroke(new BasicStroke(3));
+					else{
+						framePosX = depthFrame.getWidth();
+						positions = rotatedPositions;
+						onbs = rotatedONB;
+						torsoPosition = new Vector3();
+					}
 
-						g2.setColor(new Color(0xFF0000));
-						g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + a.getX().intValue(), framePosY + a.getY().intValue()));
+					drawLimb(g2, framePosX, framePosY, JointType.HEAD, JointType.NECK, torsoPosition, positions);
+					
+					drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.LEFT_ELBOW, torsoPosition, positions);
+					drawLimb(g2, framePosX, framePosY, JointType.LEFT_ELBOW, JointType.LEFT_HAND, torsoPosition, positions);
 
-						g2.setColor(new Color(0x00FF00));
-						g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + b.getX().intValue(), framePosY + b.getY().intValue()));
+					drawLimb(g2, framePosX, framePosY, JointType.RIGHT_SHOULDER, JointType.RIGHT_ELBOW, torsoPosition, positions);
+					drawLimb(g2, framePosX, framePosY, JointType.RIGHT_ELBOW, JointType.RIGHT_HAND, torsoPosition, positions);
 
-						g2.setColor(new Color(0x0000FF));
-						g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + c.getX().intValue(), framePosY + c.getY().intValue()));
+					//drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.RIGHT_SHOULDER, torsoPosition, positions);
+
+					drawLimb(g2, framePosX, framePosY, JointType.LEFT_SHOULDER, JointType.TORSO, torsoPosition, positions);
+					drawLimb(g2, framePosX, framePosY, JointType.RIGHT_SHOULDER, JointType.TORSO, torsoPosition, positions);
+
+					drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.TORSO, torsoPosition, positions);
+					drawLimb(g2, framePosX, framePosY, JointType.RIGHT_HIP, JointType.TORSO, torsoPosition, positions);
+					drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.RIGHT_HIP, torsoPosition, positions);
+
+					drawLimb(g2, framePosX, framePosY, JointType.LEFT_HIP, JointType.LEFT_KNEE, torsoPosition, positions);
+					drawLimb(g2, framePosX, framePosY, JointType.LEFT_KNEE, JointType.LEFT_FOOT, torsoPosition, positions);
+
+					drawLimb(g2, framePosX, framePosY, JointType.RIGHT_HIP, JointType.RIGHT_KNEE, torsoPosition, positions);
+					drawLimb(g2, framePosX, framePosY, JointType.RIGHT_KNEE, JointType.RIGHT_FOOT, torsoPosition, positions);
+
+					//draw the orientations too 
+					for (SkeletonJoint joint : skeleton.getJoints()){
+						JointType jointType = joint.getJointType();
+						int jointTypeId = jointType.toNative();
+
+						if (!limbEndTypes.contains(jointType)){
+							//draw the onb
+							Vector3 pos = torsoPosition.add(jointPositions[jointType.toNative()]);
+
+							final float len = 70; //drawing length
+							assert joint.getPosition() != null;
+
+							com.primesense.nite.Point2D<Float> orig = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos));
+							com.primesense.nite.Point2D<Float> a = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][0].scale(len))));
+							com.primesense.nite.Point2D<Float> b = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][1].scale(len))));
+							com.primesense.nite.Point2D<Float> c = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][2].scale(len))));
+
+							g2.setStroke(new BasicStroke(3));
+
+							g2.setColor(new Color(0xFF0000));
+							g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + a.getX().intValue(), framePosY + a.getY().intValue()));
+
+							g2.setColor(new Color(0x00FF00));
+							g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + b.getX().intValue(), framePosY + b.getY().intValue()));
+
+							g2.setColor(new Color(0x0000FF));
+							g2.draw(new Line2D.Float(framePosX + orig.getX().intValue(), framePosY + orig.getY().intValue(), framePosX + c.getX().intValue(), framePosY + c.getY().intValue()));
+						}
 					}
 				}
 
@@ -177,26 +198,18 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		}
 	}
 
-	private void drawLimb(Graphics2D g2, int x, int y, JointType from, JointType to) {
-		SkeletonJoint fromJoint = skeleton.getJoint(from);
-		SkeletonJoint toJoint = skeleton.getJoint(to);
-		
-		if (fromJoint.getPositionConfidence() >= 0.1 && toJoint.getPositionConfidence() >= 0.1){
-			com.primesense.nite.Point2D<Float> fromPos = mTracker.convertJointCoordinatesToDepth(fromJoint.getPosition());
-			com.primesense.nite.Point2D<Float> toPos = mTracker.convertJointCoordinatesToDepth(toJoint.getPosition());
-		
-			float minConfFrom = Math.min(fromJoint.getPositionConfidence(), fromJoint.getOrientationConfidence());
-			float minConfTo = Math.min(toJoint.getPositionConfidence(), toJoint.getOrientationConfidence());
+	private void drawLimb(Graphics2D g2, int left, int top, JointType from, JointType to, Vector3 torsoPosition, Vector3[] jointPositions) {
+		com.primesense.nite.Point2D<Float> fromPos = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(torsoPosition.add(jointPositions[from.toNative()])));
+		com.primesense.nite.Point2D<Float> toPos = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(torsoPosition.add(jointPositions[from.toNative()])));
 
-			float x1 = x + fromPos.getX().intValue();
-			float y1 = y + fromPos.getY().intValue();
-			float x2 = x + toPos.getX().intValue();
-			float y2 = y + toPos.getY().intValue();
+		float x1 = left + fromPos.getX().intValue();
+		float y1 = top + fromPos.getY().intValue();
+		float x2 = left + toPos.getX().intValue();
+		float y2 = top + toPos.getY().intValue();
 
-			g2.setColor(new Color(mColors[(targetUser.getId() + 1) % mColors.length]));
-			g2.setStroke(new BasicStroke(Math.min(minConfFrom, minConfTo) * 5));
-			g2.draw(new Line2D.Float(x1, y1, x2, y2));
-		}
+		g2.setColor(new Color(mColors[(targetUser.getId() + 1) % mColors.length]));
+		g2.setStroke(new BasicStroke(3));//g2.setStroke(new BasicStroke(Math.min(minConfFrom, minConfTo) * 5));
+		g2.draw(new Line2D.Float(x1, y1, x2, y2));
 	}
 	
 	public synchronized void onNewFrame(UserTracker tracker) {
@@ -232,9 +245,6 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 				}
 				
 				mDepthPixels[pos] = color & (0xFF000000 | (pixel << 16) | (pixel << 8) | pixel);
-				//messing with the range finding, awesome hardware
-				//int d = depth;
-				//mDepthPixels[pos] = 0xFF000000 | ((d >> 7) << 16) | ((d >> 7) << 8) | (d >> 7);
 				pos++;
 			}
 		}
@@ -255,8 +265,26 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 			skeleton = targetUser.getSkeleton();
 		}
 
+		//conditions for validity throughout; can go into an error state at any point
+		if (state >= STATE_CALIBRATE){ //non-error state;
+			if (users.size() == 0) state = STATE_ERROR_NO_USER;
+			else if (users.size() > 1) state = STATE_ERROR_TOO_MANY_USERS;
+			else { //one user
+				if (skeleton != null){
+					for (JointType limbEndType : limbEndTypes){
+						if (skeleton.getJoint(limbEndType).getPositionConfidence() < 0.1){
+							//one of the limb ends is out of frame
+							state = STATE_ERROR_USER_NOT_IN_FRAME;
+							break;
+						}
+					}
+				}
+			}
+		}
+
 		//only do this is we really have a skeleton that's being tracked
 		if (state >= STATE_BEGIN){
+			//this is not really needed
 			jointValuesLock.lock();
 
 			//this joint holds the orientation of the body as a whole
@@ -296,12 +324,13 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 
 				//translate it to the origin
 				Vector3 diff = jointPosition.sub(torsoPosition);
+				jointPositions[jointTypeId] = diff;//jointPosition;
 
 				//rotate it
 				Vector3 rotated = diff.multiply(reverseVerticalRotationMatrix);
 
-				//translate it back, and it's in body space
-				rotatedPositions[jointTypeId] = rotated.add(torsoPosition);
+				//just store it as it is				//translate it back, and it's in body space
+				rotatedPositions[jointTypeId] = rotated;//.add(torsoPosition);
 
 				//hand and foot bones don't have orientation (but the head does)
 				if (!limbEndTypes.contains(joint.getJointType())){
@@ -323,23 +352,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 			try{jointValuesLock.unlock();}
 			catch(IllegalMonitorStateException e){e.printStackTrace();}
 		}
-
-		//conditions for validity throughout; can go into an error state at any point
-		if (state >= STATE_CALIBRATE){ //non-error state;
-			if (users.size() == 0) state = STATE_ERROR_NO_USER;
-			else if (users.size() > 1) state = STATE_ERROR_TOO_MANY_USERS;
-			else { //one user
-				if (skeleton != null){
-					for (JointType limbEndType : limbEndTypes){
-						if (skeleton.getJoint(limbEndType).getPositionConfidence() < 0.1){
-							//one of the limb ends is out of frame
-							state = STATE_ERROR_USER_NOT_IN_FRAME;
-							break;
-						}
-					}
-				}
-			}
-		}
+		
 
 		switch(state){
 			//error states

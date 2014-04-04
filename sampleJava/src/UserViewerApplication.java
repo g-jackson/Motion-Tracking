@@ -58,15 +58,16 @@ public class UserViewerApplication {
 			}
 		});
 		
-		mViewer.setSize(800, 600);
+		mViewer.setSize(1200, 600);
 		
 		mFrame.add(mViewer);
 		JPanel buttons = new UserInterface();
 		mFrame.add(buttons);
 		mFrame.setSize(new Dimension( (int)((buttons.getSize().getWidth()>mViewer.getSize().getHeight())? buttons.getSize().getWidth() : mViewer.getSize().getWidth()), (int)(buttons.getSize().getHeight() + mViewer.getSize().getHeight())));
-		mFrame.setResizable(false);
+		//mFrame.setResizable(false);
+		//mFrame.pack();
+
 		mFrame.setVisible(true); 
-		
 	}
 
 	void run() {
