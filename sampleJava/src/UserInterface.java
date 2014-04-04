@@ -29,6 +29,7 @@ public class UserInterface extends JPanel implements ActionListener{
     protected JButton save;
     protected JButton compare;
 	protected JComboBox actionList;
+	protected JLabel statusLabel;
     private int saves;
     // update with type used in comparison algorithm 
     private String currentActionData= "";
@@ -68,6 +69,9 @@ public class UserInterface extends JPanel implements ActionListener{
         compare = new JButton("Compare");
         compare.setActionCommand("COMP");
         compare.setEnabled(false);
+        
+        //crate status label
+        statusLabel = new JLabel();
  
         record.addActionListener(this);
         stopRecord.addActionListener(this);
@@ -79,6 +83,11 @@ public class UserInterface extends JPanel implements ActionListener{
         add(actionList);
         add(save);
         add(compare);
+        add(statusLabel);
+    }
+    
+    public void setStatus(String text){
+    	statusLabel.setText(text);
     }
     
     

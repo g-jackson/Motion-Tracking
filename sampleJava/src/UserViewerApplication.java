@@ -19,10 +19,11 @@ public class UserViewerApplication {
 
 	private JFrame mFrame;
 	private UserViewer mViewer;
+	private UserInterface mUI;
 	private boolean mShouldRun = true;
 
 	public UserViewerApplication(UserTracker tracker) {
-		mFrame = new JFrame("NiTE User Tracker Viewer");
+		mFrame = new JFrame("Motion Tracking");
 		mViewer = new UserViewer(tracker);
 
 		// register to closing event
@@ -61,9 +62,9 @@ public class UserViewerApplication {
 		mViewer.setSize(1200, 600);
 		
 		mFrame.add(mViewer);
-		JPanel buttons = new UserInterface();
-		mFrame.add(buttons);
-		mFrame.setSize(new Dimension( (int)((buttons.getSize().getWidth()>mViewer.getSize().getHeight())? buttons.getSize().getWidth() : mViewer.getSize().getWidth()), (int)(buttons.getSize().getHeight() + mViewer.getSize().getHeight())));
+		mUI = new UserInterface();
+		mFrame.add(mUI);
+		mFrame.setSize(new Dimension( (int)((mUI.getSize().getWidth()>mViewer.getSize().getHeight())? mUI.getSize().getWidth() : mViewer.getSize().getWidth()), (int)(mUI.getSize().getHeight() + mViewer.getSize().getHeight())));
 		//mFrame.setResizable(false);
 		//mFrame.pack();
 
@@ -74,6 +75,7 @@ public class UserViewerApplication {
 		while (mShouldRun) {
 			try {
 				Thread.sleep(200);
+				mUI.setStatus(mViewer.getStatus());
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}

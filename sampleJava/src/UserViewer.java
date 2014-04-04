@@ -1,15 +1,14 @@
 import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Color;
 import java.awt.BasicStroke;
+import java.awt.Rectangle;
 import java.awt.geom.Line2D;
 import java.awt.image.*;
 
@@ -42,7 +41,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 
 	private final static int[] mColors = new int[] { 0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFF00, 0xFFFF00FF, 0xFF00FFFF };
 
-	private final static String[] stateNames = new String[]{"no user", "more than one user", "user not in frame", "calibrating", "begin", "bend", "jump", "finish"};
+	private final static String[] stateNames = new String[]{"no user", "more than one user", "user not completely in frame", "calibrating", "begin", "bend", "jump", "finish"};
 
 	private final static List<JointType> limbEndTypes = Arrays.asList(new JointType[]{ JointType.LEFT_HAND, JointType.RIGHT_HAND, JointType.LEFT_FOOT, JointType.RIGHT_FOOT });
 
@@ -68,10 +67,12 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 	private Vector3[] jointPositions = new Vector3[JointType.values().length];
 	private Vector3[][] jointONB = new Vector3[JointType.values().length][];
 
-	//head-on-facing space values
+	//vertical rotation cancelled space values
 	private Quaternion[] rotatedQuaternions = new Quaternion[JointType.values().length];
 	private Vector3[][] rotatedONB = new Vector3[JointType.values().length][];
 	private Vector3[] rotatedPositions = new Vector3[JointType.values().length];
+	
+	private Vector3 floorPoint, floorNormal;
 
 	//used to prevent the paint thread from accessing the above values while they're being changed by the main thread
 	private Lock jointValuesLock = new ReentrantLock(); 
@@ -116,7 +117,24 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 				g.drawImage(mBufferedImage, framePosX, framePosY, null);
 			}
 			
-			if (skeleton != null && skeleton.getState() == SkeletonState.TRACKED){
+			/* draw a grid of the floor, sadly does not work
+			 * for (int n = -3; n < 4; n++){
+				
+				Vector3 fp0 = getFloorPoint(n * 40,  10);
+				Vector3 fp1 = getFloorPoint(n * 40,   0);
+				
+				if (fp0 != null){
+					com.primesense.nite.Point2D<Float> f0 = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(fp0));
+					com.primesense.nite.Point2D<Float> f1 = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(fp1));
+					
+					g2.setStroke(new BasicStroke(3));
+
+					g2.setColor(new Color(0xFF0000));
+					g2.draw(new Line2D.Float(framePosX + f0.getX().intValue(), framePosY + f0.getY().intValue(), framePosX + f1.getX().intValue(), framePosY + f1.getY().intValue()));
+				}
+			}*/
+			
+			if (state >= STATE_CALIBRATE && skeleton != null && skeleton.getState() == SkeletonState.TRACKED){
 				jointValuesLock.lock();
 
 				//draw the skeleton both on screen, and to the right of the screen, with vertical rotation cancelled
@@ -128,14 +146,16 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 					if (i == 0){
 						positions = jointPositions;
 						onbs = jointONB;
-						torsoPosition = jointPositions[JointType.TORSO.toNative()];
+						torsoPosition = MathConversion.vector3(skeleton.getJoint(JointType.TORSO).getPosition());
+						g2.setClip(new Rectangle(0, framePosY, depthFrame.getWidth(), framePosY + depthFrame.getHeight()));
 					}
 
 					else{
 						framePosX = depthFrame.getWidth();
 						positions = rotatedPositions;
 						onbs = rotatedONB;
-						torsoPosition = new Vector3();
+						torsoPosition = MathConversion.vector3(skeleton.getJoint(JointType.TORSO).getPosition()); //new Vector3();
+						g2.setClip(new Rectangle(depthFrame.getWidth(), framePosY, getWidth(), framePosY + depthFrame.getHeight()));
 					}
 
 					drawLimb(g2, framePosX, framePosY, JointType.HEAD, JointType.NECK, torsoPosition, positions);
@@ -168,15 +188,15 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 
 						if (!limbEndTypes.contains(jointType)){
 							//draw the onb
-							Vector3 pos = torsoPosition.add(jointPositions[jointType.toNative()]);
+							Vector3 pos = torsoPosition.add(positions[jointType.toNative()]);
 
 							final float len = 70; //drawing length
 							assert joint.getPosition() != null;
 
 							com.primesense.nite.Point2D<Float> orig = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos));
-							com.primesense.nite.Point2D<Float> a = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][0].scale(len))));
-							com.primesense.nite.Point2D<Float> b = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][1].scale(len))));
-							com.primesense.nite.Point2D<Float> c = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(jointONB[jointTypeId][2].scale(len))));
+							com.primesense.nite.Point2D<Float> a = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(onbs[jointTypeId][0].scale(len))));
+							com.primesense.nite.Point2D<Float> b = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(onbs[jointTypeId][1].scale(len))));
+							com.primesense.nite.Point2D<Float> c = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(pos.add(onbs[jointTypeId][2].scale(len))));
 
 							g2.setStroke(new BasicStroke(3));
 
@@ -200,7 +220,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 
 	private void drawLimb(Graphics2D g2, int left, int top, JointType from, JointType to, Vector3 torsoPosition, Vector3[] jointPositions) {
 		com.primesense.nite.Point2D<Float> fromPos = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(torsoPosition.add(jointPositions[from.toNative()])));
-		com.primesense.nite.Point2D<Float> toPos = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(torsoPosition.add(jointPositions[from.toNative()])));
+		com.primesense.nite.Point2D<Float> toPos = mTracker.convertJointCoordinatesToDepth(MathConversion.point3d(torsoPosition.add(jointPositions[to.toNative()])));
 
 		float x1 = left + fromPos.getX().intValue();
 		float y1 = top + fromPos.getY().intValue();
@@ -210,6 +230,17 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 		g2.setColor(new Color(mColors[(targetUser.getId() + 1) % mColors.length]));
 		g2.setStroke(new BasicStroke(3));//g2.setStroke(new BasicStroke(Math.min(minConfFrom, minConfTo) * 5));
 		g2.draw(new Line2D.Float(x1, y1, x2, y2));
+	}
+	
+	/*
+	 * Given a x(left-right) and z(depth) coordinated, pojects the y coordinate onto the floor and returns a Vector3
+	 */
+	private Vector3 getFloorPoint(double floorX, double floorZ){
+		if (floorPoint != null){
+			double floorY = floorPoint.getY() - (floorNormal.getX() * (floorX - floorPoint.getX()) + floorNormal.getZ() * (floorZ - floorPoint.getZ())) / floorNormal.getY();
+			return new Vector3(floorX, floorY, floorZ);
+		}
+		else return null;
 	}
 	
 	public synchronized void onNewFrame(UserTracker tracker) {
@@ -248,7 +279,18 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 				pos++;
 			}
 		}
-
+		
+		//get floor position
+		if (mLastFrame.getFloorConfidence() > 0.1){
+			floorNormal = MathConversion.vector3(mLastFrame.getPlane().getNormal());
+			floorPoint = MathConversion.vector3(mLastFrame.getPlane().getPoint());
+		}
+		
+		else{
+			floorNormal = null;
+			floorPoint = null;
+		}
+			
 		//detect any new users in case they are the target user
 		java.util.List<UserData> users = mLastFrame.getUsers();
 		for (UserData user : users) {
@@ -307,7 +349,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 			double verticalRotation = Math.atan2(rightDirection.getZ(), rightDirection.getX());
 
 			//create a reverse vertical rotation quaternion and rotation matrix
-			Quaternion reverseVerticalRotation = new Quaternion(upVector, -verticalRotation);
+			Quaternion reverseVerticalRotation = new Quaternion(upVector, -verticalRotation + Math.PI / 2.0);
 			Matrix3 reverseVerticalRotationMatrix = new Matrix3(reverseVerticalRotation);
 
 			//multiply each joint quaternion by $reverseVerticalRotation,
@@ -404,7 +446,7 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 
 				break;
 
-			//TODO: pose stuff here
+			//TODO: fixed pose matching here
 			case STATE_BEGIN: break;
 			case STATE_BEND: break;
 			case STATE_JUMP: break;
@@ -453,47 +495,6 @@ public class UserViewer extends Component implements UserTracker.NewFrameListene
 			}
 		}
 	}
-	
-	/**
-	*@return: string containing quaternions of all the joints if a skeleton is detected. 
-	**/
-	/*synchronized String getQuaternionsToString(){
-		String strQuaternion = "";
-		
-		if(mLastFrame!=null){
-			for(UserData user : mLastFrame.getUsers()){
-				if (user.getSkeleton().getState() == SkeletonState.TRACKED) {
-					for(SkeletonJoint joint : user.getSkeleton().getJoints()){
-						Quaternion orientation = joint.getOrientation();
-						strQuaternion += joint.getJointType() + ": " + "W - " +orientation.getW()+ "; X - " +orientation.getX()+ "; Y - " +orientation.getY()+ "; Z - " +orientation.getZ()+ ";\n";
-					}
-				}
-				else{
-					strQuaternion = "Skeleton not found.";
-				}
-			}
-		}
-		else
-			strQuaternion = "Last frame is null.";
-		
-		return strQuaternion;
-	}*/
-	
-	/**
-	*@return: string containing the normal vector and point on the floor plane as well as confidence.
-	**/
-	/*synchronized String getFloorPlaneToString(){
-		String strFloor = "";
-		
-		if(mLastFrame!=null){
-			strFloor ="Floor(normal vector): (" + mLastFrame.getPlane().getNormal().getX() + "," + mLastFrame.getPlane().getNormal().getY() + 
-				"," + mLastFrame.getPlane().getNormal().getZ()+")" + 
-				"\nFloor(point): (" + mLastFrame.getPlane().getPoint().getX() +","+ mLastFrame.getPlane().getPoint().getY() +","+ mLastFrame.getPlane().getPoint().getZ() + ")" + 
-				"\n" +"Confidence: " + mLastFrame.getFloorConfidence();
-		}
-		
-		return strFloor;
-	}*/
 }
 
 
